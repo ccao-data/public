@@ -1,61 +1,67 @@
-name: Data Request
-description: Create a data request
-title: "[Data Request]: "
+name: Data request
+description: Create a new bulk data request
 labels: ["data request"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to fill out this bug report!
-  - type: input
-    id: contact
+        Thanks for taking the time to make a data request! This issue template will help you clearly articulate your request. Please read the template carefully, and populate each section as completely as you can.
+  - type: textarea
+    id: general-description 
     attributes:
-      label: Contact Details
-      description: How can we get in touch with you if we need more info?
-      placeholder: ex. email@example.com
+      label: General description
+      description: |
+        Please use this space to describe, in your own words, the data you are requesting. Be as specific as possible.
+    validations:
+      required: true
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: |
+        Often, it is helpful for us to understand how the data will be used. In this space, please describe your use-case.
+    validations:
+      required: true
+  - type: textarea
+    id: universe
+    attributes:
+      label: Universe
+      description: |
+        Please describe the universe of the data you are requesting.
+      placeholder: |
+        - All single-family PINs in Lyons township
+        - Every unique combination of postal address and PIN in the City of Chicago
+        - Every PIN in a Special Service Area in the City of Chicago
+    validations:
+      required: true
+  - type: textarea
+    id: unit
+    attributes:
+      label: Unit of observation
+      description: |
+        Please describe the unit of observation for the data you are requesting. A unit of observation is the unique identifier for each row in your data.
+      placeholder: |
+        - Individual Property Index Numbers (PINs)
+        - Cook County townships
+    validations:
+      required: true
+  - type: textarea
+    id: restrictions
+    attributes:
+      label: Restrictions and exclusions
+      description: |
+        Please describe any specific restrictions or exclusions from your data. For example, if you defined your universe as "single-family", you should define your expectations about what that means. For example, do you consider a condominium a single-family property?
     validations:
       required: false
-  - type: textarea
-    id: what-happened
-    attributes:
-      label: What happened?
-      description: Also tell us, what did you expect to happen?
-      placeholder: Tell us what you see!
-      value: "A bug happened!"
-    validations:
-      required: true
-  - type: dropdown
-    id: version
-    attributes:
-      label: Version
-      description: What version of our software are you running?
-      options:
-        - 1.0.2 (Default)
-        - 1.0.3 (Edge)
-    validations:
-      required: true
-  - type: dropdown
-    id: browsers
-    attributes:
-      label: What browsers are you seeing the problem on?
-      multiple: true
-      options:
-        - Firefox
-        - Chrome
-        - Safari
-        - Microsoft Edge
-  - type: textarea
-    id: logs
-    attributes:
-      label: Relevant log output
-      description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
-      render: shell
   - type: checkboxes
     id: terms
     attributes:
-      label: Code of Conduct
-      description: By submitting this issue, you agree to follow our [Code of Conduct](https://example.com)
+      label: Citation and use of Assessor data
+      description: |
+        By submitting this issue ticket, I certify the following:
+          - I will cite the Cook County Assessor's Office. Publications and other materials leveraging this data should clearly and appropriately cite the CCAO, and this particular issue ticket.
+          - I will use this data to do good.
       options:
-        - label: I agree to follow this project's Code of Conduct
+        - label: I agree to the above terms.
           required: true
 

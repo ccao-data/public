@@ -1,8 +1,5 @@
 blank_issues_enabled: false
 contact_links:
-  - name: List of Completed Requests and Issues 
-    url: https://github.com/ccao-data/public/issues?q=is%3Aissue+is%3Aclosed
+  - name: List of all requests and issues 
+    url: https://github.com/ccao-data/public/issues?q=is%3Aissue
     about: Please check this before creating a new issue
-  - name: Private Questions
-    url: mailto:Assessor.Data@cookcountyil.gov
-    about: Please ask private and sensitive questions via email
