@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to make a data request! This issue template will help you clearly articulate your request. Please read the template carefully, and populate each section as completely as you can.
+        Thank you for taking the time to make a data request! This issue template will help you clearly articulate your request. Please read the template carefully, and populate each section as completely as you can.
   - type: textarea
     id: general-description 
     attributes:
@@ -19,7 +19,7 @@ body:
     attributes:
       label: Use case
       description: |
-        Often, it is helpful for us to understand how the data will be used. In this space, please describe your use-case.
+        Often, it is helpful for us to understand how the data will be used. In this space, please describe your use case.
     validations:
       required: true
   - type: textarea
@@ -53,6 +53,19 @@ body:
         Please describe any specific restrictions or exclusions from your data. For example, if you defined your universe as "single-family", you should define your expectations about what that means. For example, do you consider a condominium a single-family property?
     validations:
       required: false
+  - type: dropdown
+    attributes:
+      label: Data delivery format
+      description: |
+        Please choose a preferred delivery format. Files will be delivered via a public S3 bucket. Choose "Open Data asset" if you think your data will be of public interest i.e. it will be frequently requested.
+      multiple: false
+      options:
+        - CSV
+        - XLSX
+        - Parquet
+        - Open Data asset
+    validations:
+      required: true
   - type: checkboxes
     id: terms
     attributes:
