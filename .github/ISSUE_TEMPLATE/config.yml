@@ -1,5 +1,1 @@
 blank_issues_enabled: false
-contact_links:
-  - name: List of all requests and issues 
-    url: https://github.com/ccao-data/public/issues?q=is%3Aissue
-    about: Please check this before creating a new issue

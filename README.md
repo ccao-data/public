@@ -2,10 +2,10 @@
 
 Welcome to the CCAO Data Department's public engagement repository. Within this repo, you can:
 
-- [View public talks and other engagements from the Data Department](#public-engagement)
+- [View public talks and other engagements with the Data Department](#public-engagement)
 - [View public data sets published by the CCAO](#open-data)
 - [Create a new public data request](#data-requests)
-- [Raise a new question or issue related to the Data Department's work](#questions-and-issues)
+- [Contact us privately for anything not already covered here](#contact-us)
 
 ## Public Engagement
 
@@ -63,9 +63,8 @@ When ready, your data will be saved on our public S3 bucket and a link will be s
 
 If you specified in your issue that you would like the data delivered as a new [Open Data](#open-data) assets, then we will share a link in the issue comments once your asset is ready.
 
-## Questions and Issues
+## Contact Us
 
-- Public v private
-- List of closed issues
-- Here, vs specific repos
+If you have a question or issue that is not covered by the content of this repository, then please reach out via email. Our department email address is [Assessor.Data@cookcountyil.gov](mailto:Assessor.Data@cookcountyil.gov).
 
+:fire:

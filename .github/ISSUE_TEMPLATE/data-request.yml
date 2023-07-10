@@ -64,6 +64,7 @@ body:
         - XLSX
         - Parquet
         - Open Data asset
+        - Other
     validations:
       required: true
   - type: checkboxes
