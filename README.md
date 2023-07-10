@@ -1,11 +1,31 @@
 # Public
 
+Welcome to the CCAO Data Department's public engagement repository. Within this repo, you can:
+
+- [View public talks and other engagements from the Data Department](#public-engagement)
+- [View public data sets published by the CCAO](#open-data)
+- [Create a new public data request](#data-requests)
+- [Raise a new question or issue related to the Data Department's work](#questions-and-issues)
+
 ## Public Engagement
 
-- Chi Hack
-- AMA
-- Open Data
-- Events (email us)
+#### Talks
+
+Members of the Data Department occasionally present at meetups, conferences, and other events about their work. Below is a list of the most recent recorded events:
+
+| Date       | Title                                                                         | Topics                                                      | Video                                   | Slides                                                                                               |
+|------------|-------------------------------------------------------------------------------|-------------------------------------------------------------|-----------------------------------------|------------------------------------------------------------------------------------------------------|
+| 2023/01/17 | Why Are Chicago Property Taxes So High? (And What Can Be Done to Lower Them?) | R, public finance, TIF, property taxes                      | [YouTube](https://youtu.be/0F-iqRj4yR0) | [PPTX](https://github.com/ccao-data/public/raw/main/presentations/2023-01-17_Chi-Hack-Night.pptx)    |
+| 2022/08/16 | Cook County Assessor's Residential Model V3                                   | data science, predictive modeling, R, Tidymodels            | [YouTube](https://youtu.be/h0pwAr-WYxI) | [PPTX](https://github.com/ccao-data/public/raw/main/presentations/2022-08-16_Chi-Hack-Night.pptx)    |
+| 2021/01/20 | Cook County Assessor's Residential Model V2                                   | data science, predictive modeling, R, Tidymodels            | [YouTube](https://youtu.be/6rd-xYJb27Q) | [PPTX](https://github.com/ccao-data/public/raw/main/presentations/2021-01-20_Chi-Hack-Night.pptx)    |
+
+#### AMAs
+
+The Data Department has also done a reddit AMA, where we answered questions about the office and modeling.
+
+| Date       | Title                                                                                                                                    | Topics                                                      | Link                                                                                                       |
+|------------|------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
+| 2022/06/08 | We are the Cook County Assessor’s Data Team and are responsible for making the models that affect property assessments. Ask Us Anything! | public finance, property taxes, assessments, government     | [reddit](https://old.reddit.com/r/chicago/comments/v7rvqm/we_are_the_cook_county_assessors_data_team_and/) |
 
 ## Questions and Issues
 
