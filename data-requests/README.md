@@ -7,15 +7,14 @@ Public data requests are one-off requests primarily from outside the CCAO. The p
 
 ## Workflow
 
-1. Create a new issue. Be sure to include as much of the requester's original language as possible.
-2. Create a branch associated with the issue. This can be done directly from within the issue page (bottom right).
-3. Clone the repository, then checkout the issue branch locally.
-4. Copy the template directory `pdr-issue-template` to create a new project directory specifically for your issue. Be sure to rename both the directory _and_ the `.Rproj` file, i.e. `pdr-issue-template.Rproj` should become `pdr-issue-XXXX.Rproj`, replacing `XXXX` with the issue number.
-5. Open the newly-created project directory in RStudio, this should initialize `renv` specifically for your issue project. Work the issue to completion, taking note of the requirements below.
-6. Store your input data, output data, and code following the requirements below.
-7. Once you've finished working the issue, snapshot the state of your R (or Python) dependencies using `renv::snapshot()` or `pipreqs`.
-8. Create a pull request to merge your issue branch to `main`. Wait for a @core-team member to review your PR.
-9. Once approved, merge your PR, then send the resulting data to the relevant parties.
+1. Create a branch associated with the issue. This can be done directly from within the issue page (bottom right).
+2. Clone the repository, then checkout the issue branch locally.
+3. Copy the template directory `pdr-issue-template` to create a new project directory specifically for your issue. Be sure to rename both the directory _and_ the `.Rproj` file, i.e. `pdr-issue-template.Rproj` should become `pdr-issue-XXXX.Rproj`, replacing `XXXX` with the issue number.
+4. Open the newly-created project directory in RStudio, this should initialize `renv` specifically for your issue project. Work the issue to completion, taking note of the requirements below.
+5. Store your input data, output data, and code following the requirements below.
+6. Once you've finished working the issue, snapshot the state of your R (or Python) dependencies using `renv::snapshot()` or `pipreqs`.
+7. Create a pull request to merge your issue branch to `main`. Wait for a @core-team member to review your PR.
+8. Once approved, merge your PR, then send the resulting data to the relevant parties.
 
 ## Requirements
 
