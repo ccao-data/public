@@ -11,13 +11,6 @@
 *.utf8.md
 *.knit.md
 
-archive/*
-resources/*
-code.r.old/*
-data/*
-code.sas/*
-code.stata/*
-results/*
 
 *.html
 *.dta
