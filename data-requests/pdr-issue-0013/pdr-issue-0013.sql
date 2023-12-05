@@ -34,5 +34,6 @@ LEFT JOIN incentive_classes
     AND par.taxyr = incentive_classes.taxyr
 WHERE par.deactivat IS NULL
     AND par.cur = 'Y'
+    -- Exclude PINs with NULL CDUs from output
     AND incentive_classes.user16 IS NOT NULL
     AND par.taxyr = '2023'
