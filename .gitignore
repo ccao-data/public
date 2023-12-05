@@ -24,3 +24,4 @@
 *.csv
 *.Rda
 *.parquet
+**/renv/activate.R
