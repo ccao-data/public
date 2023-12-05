@@ -8,7 +8,7 @@ library(purrr)
 library(readr)
 
 # Local output path
-out_path <- paste0("pdr-issue-0013.xlsx")
+out_path <- "pdr-issue-0013.xlsx"
 
 # user16 descriptions
 file <- "Alternate CDU fields - dweldat, oby, comdat.xlsx"
