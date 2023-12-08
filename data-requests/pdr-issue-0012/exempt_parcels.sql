@@ -1,6 +1,6 @@
 -- Gather historical exempt parcels
 SELECT DISTINCT
-    PIN AS PIN,
+    PIN,
     CAST(TAX_YEAR AS VARCHAR) AS YEAR
 FROM AS_HEADBR
 WHERE HD_CLASS = '0'
