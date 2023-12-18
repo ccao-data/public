@@ -1,6 +1,6 @@
 # Public
 
-Welcome to the CCAO Data Department's public engagement repository. Within this repo, you can:
+Welcome to the CCAO Data Department's public engagement repository. Within this repository, you can:
 
 - [View public talks and other engagements with the Data Department](#public-engagement)
 - [View public data sets published by the CCAO](#open-data)
@@ -15,7 +15,7 @@ Members of the Data Department occasionally present at meetups, conferences, and
 
 | Date       | Title                                                                                            | Topics                                                      | Video                                                                                                                      | Slides                                                                                               |
 |------------|--------------------------------------------------------------------------------------------------|-------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
-| 2023/09/20 | Open-Source Property Assessment: Using Tidymodels to Help Allocate $16B of Annual Property Taxes | R, data science, predictive modeling, property taxes        | [Posit](https://reg.conf.posit.co/flow/posit/positconf23/attendee-portal/page/sessioncatalog/session/1685040660756001GQ56) | [PPTX](https://github.com/ccao-data/public/raw/main/presentations/2023-09-20_Posit-conf.pptx)        |
+| 2023/09/20 | Open-Source Property Assessment: Using Tidymodels to Help Allocate $16B of Annual Property Taxes | R, data science, predictive modeling, property taxes        | [YouTube](https://youtu.be/1_GivgmZYgM)                                                                                    | [PPTX](https://github.com/ccao-data/public/raw/main/presentations/2023-09-20_Posit-conf.pptx)        |
 | 2023/01/17 | Why Are Chicago Property Taxes So High? (And What Can Be Done to Lower Them?)                    | R, public finance, TIF, property taxes                      | [YouTube](https://youtu.be/zp5dHWnk2NE)                                                                                    | [PPTX](https://github.com/ccao-data/public/raw/main/presentations/2023-01-17_Chi-Hack-Night.pptx)    |
 | 2022/08/16 | Cook County Assessor's Residential Model V3                                                      | data science, predictive modeling, R, Tidymodels            | [YouTube](https://youtu.be/h0pwAr-WYxI)                                                                                    | [PPTX](https://github.com/ccao-data/public/raw/main/presentations/2022-08-16_Chi-Hack-Night.pptx)    |
 | 2021/01/20 | Cook County Assessor's Residential Model V2                                                      | data science, predictive modeling, R, Tidymodels            | [YouTube](https://youtu.be/6rd-xYJb27Q)                                                                                    | [PPTX](https://github.com/ccao-data/public/raw/main/presentations/2021-01-20_Chi-Hack-Night.pptx)    |
@@ -44,11 +44,17 @@ We strive to meet a **turnaround time of 14 business days**. However, operationa
 
 #### Is this a Freedom of Information Act Request?
 
-**No.** This repository is a service offered by the Data Department and does not supersede the Freedom of Information Act. A data request submitted via this repository is not a request that falls under the Freedom of Information Act. In order to file an official FOIA request, please [visit our website](https://www.cookcountyassessor.com/foia-freedom-information). Departmental discretion governs this request mechanism.
+**No.** This repository is a service offered by the Data Department and does not supersede the Freedom of Information Act. A data request submitted via this repository is not a request that falls under the Freedom of Information Act.
+
+In order to file an official FOIA request, please [visit our site](https://www.cookcountyassessor.com/foia-freedom-information). Departmental discretion governs this request mechanism.
 
 #### What types of requests do we process?
 
-Transparency can be costly, and our department has limited resources. We process requests for bulk data. We do not process requests for data analysis, including graphs, sophisticated tabulations or matching, time-consuming data cleansing, etc. We will limit our expenditure on repeated data requests from the same requester if we believe the repetition is due to 'scope creep'. This often happens when the requester does not have a sufficiently clear understanding of the data they want, and uses our department to help refine their ideas. We do not have the resources to help refine your research question. If you have a specific project and need data from our office, we're happy to help. If we choose not to process a request, we will clearly indicate our rationale on the issue ticket.
+Transparency can be costly, and our department has limited resources. We process requests for bulk data. We do not process requests for data analysis, including graphs, sophisticated tabulations or matching, time-consuming data cleansing, etc.
+
+We will limit our expenditure on repeated data requests from the same requester if we believe the repetition is due to 'scope creep'. This often happens when the requester does not have a sufficiently clear understanding of the data they want, and uses our department to help refine their ideas. We do not have the resources to help refine your research question.
+
+If you have a specific project and need data from our office, we're happy to help. If we choose not to process a request, we will clearly indicate our rationale on the issue ticket.
 
 #### Process for making a request using GitHub
 
