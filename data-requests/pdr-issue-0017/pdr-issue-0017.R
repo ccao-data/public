@@ -25,34 +25,26 @@ eav22 <- DBI::dbGetQuery(
 # to this filter - any parcels that don't include a "muni" component in their
 # tax bill will not show up in this output
 munis <- tax_bill(year_vec = 2022, pin_vec = eav22) %>%
-  filter(agency_minor_type == "MUNI")
+  filter(agency_minor_type == "MUNI") %>%
+  mutate("Major Class" = substr(class, 1, 1)) %>%
+  rename("Minor Class" = class)
 
-map(
-  list(
-    "Minor Class" = munis %>%
+c("Minor Class", "Major Class") %>%
+  set_names() %>%
+  map(function(x) {
+    munis %>%
       summarise(
         num_pins = n(),
         median_eav = median(eav, na.rm = TRUE),
         total_eav = sum(eav, na.rm = TRUE),
-        .by = c(class, agency_name)
-      ),
-    "Major Class" = munis %>%
-      mutate(class = substr(class, 1, 1)) %>%
-      summarise(
-        num_pins = n(),
-        median_eav = median(eav, na.rm = TRUE),
-        total_eav = sum(eav, na.rm = TRUE),
-        .by = c(class, agency_name)
+        .by = c({{ x }}, agency_name)
+      ) %>%
+      select(
+        Municipality = agency_name,
+        Class = {{ x }},
+        `Num Parcels` = num_pins,
+        `Median EAV` = median_eav,
+        `Total EAV` = total_eav
       )
-  ),
-  function(x) {
-    x %>% select(
-      Municipality = agency_name,
-      Class = class,
-      `Num Parcels` = num_pins,
-      `Median EAV` = median_eav,
-      `Total EAV` = total_eav
-    )
-  }
-) %>%
+  }) %>%
   write.xlsx("eavs22.xlsx")
