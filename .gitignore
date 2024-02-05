@@ -25,3 +25,4 @@
 *.Rda
 *.parquet
 **/renv/activate.R
+*.db
