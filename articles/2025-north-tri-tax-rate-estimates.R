@@ -8,7 +8,15 @@ library(openxlsx)
 library(ptaxsim)
 library(tidyr)
 
-# the PTAXSIM database
+# NOTE: This code relies on the PTAXSIM package, which relies on a separate
+# SQLite database to function correctly.
+# This database must be installed and available in the working directory for
+# the following code to work.
+# Installation instructions can be found at
+# ccao-data.github.io/ptaxsim/index.html#installation
+
+# Once database is installed and available in the working directory, we can
+# create the DB connection with the default name expected by PTAXSIM functions
 ptaxsim_db_conn <- DBI::dbConnect(RSQLite::SQLite(), "./ptaxsim.db")
 
 # Define base year to be used - base year should be two years prior to
@@ -263,6 +271,6 @@ addStyle(
   gridExpand = TRUE
 )
 
-saveWorkbook(wb, "articles/Tax_Rate_Estimates_23_25.xlsx",
+saveWorkbook(wb, "Tax_Rate_Estimates_23_25.xlsx",
   overwrite = TRUE
 )
