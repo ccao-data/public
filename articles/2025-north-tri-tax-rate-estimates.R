@@ -1,5 +1,4 @@
 library(DBI)
-library(data.table)
 library(dplyr)
 library(glue)
 library(here)
@@ -9,7 +8,8 @@ library(openxlsx)
 library(ptaxsim)
 library(tidyr)
 
-ptaxsim_db_conn <- DBI::dbConnect(RSQLite::SQLite(), "articles/ptaxsim.db")
+# the PTAXSIM database
+ptaxsim_db_conn <- DBI::dbConnect(RSQLite::SQLite(), "./ptaxsim.db")
 
 # Define base year to be used - base year should be two years prior to
 # projected year
@@ -25,8 +25,7 @@ class_5_ratio <- .7179
 
 
 # Assessment ratios for classes 2, 3 for the North Tri from IDOR were converted
-# to sales ratios (divide by level of assessment), and projected increase is
-# (1-sales_ratio)/sales_ratio
+# to sales ratios (divide by level of assessment)
 est_increases <- data.frame(
   class = c("2", "3", "5"),
   ratio =
@@ -34,12 +33,13 @@ est_increases <- data.frame(
 ) %>%
   mutate(
     fmv_ratio = ifelse(stringr::str_sub(class, 1, 1) == "5", ratio,
-                       ratio / .1
+      ratio / .1
     ),
     est_increase = round((1 - fmv_ratio) / fmv_ratio, 4)
   )
 
-# We can query the CCAO Open Data parcel universe to get all PINs that fall within the north tri
+# We can query the CCAO Open Data parcel universe to get all PINs that fall
+# within the north tri
 base_url <- "https://datacatalog.cookcountyil.gov/resource/nj4t-kc8j.json"
 
 north_tri_pins <- GET(
@@ -54,7 +54,9 @@ north_tri_pins <- GET(
 
 north_tri_pins <- fromJSON(rawToChar(north_tri_pins$content))
 
-# Get the township names for each taxcode so we find the tax rate distributions for each North Tri township. In some rare cases in Cook County, a taxcode can cover multiple townships, but in the North Tri each taxcode is unique to a township.
+# Get the township names for each taxcode so we find the tax rate distributions
+# for each North Tri township. In some rare cases in Cook County, a taxcode can
+# cover multiple townships, but in the North Tri each taxcode is unique to a township.
 tax_code_to_townships <- north_tri_pins %>%
   group_by(tax_code) %>%
   summarise(township_name = first(township_name))
@@ -68,7 +70,7 @@ north_tri_tax_codes <- dbGetQuery(
     WHERE tax_code_num IN ({north_tri_pins$tax_code*})
     AND year = {base_year}
     ",
-           .con = ptaxsim_db_conn
+    .con = ptaxsim_db_conn
   )
 ) %>%
   left_join(tax_code_to_townships, by = c("tax_code_num" = "tax_code"))
@@ -81,18 +83,22 @@ north_tri_pins_exemptions <- lookup_pin(
   north_tri_pins$pin
 )
 
-# The lookup_pin function queries the PTAXSIM database for all info related to the PIN's AV, EAV and exemptions
+# The lookup_pin function queries the PTAXSIM database for all info related to
+# the PIN's AV, EAV and exemptions
 north_tri_pins_exemptions <- lookup_pin(
   base_year,
   north_tri_pins$pin
 )
 
-# Join the data with AV and exemption info to our other data.frame with PINs and tax codes
+# Join the data with AV and exemption info to our other data.frame with
+# PINs and tax codes
 north_tri_pins <- north_tri_pins_exemptions %>%
   select(-class) %>%
   left_join(north_tri_pins, by = "pin") %>%
-  mutate(exe_total = rowSums(across(starts_with("exe_"))),
-         major_class_code = substr(class, 1, 1))
+  mutate(
+    exe_total = rowSums(across(starts_with("exe_"))),
+    major_class_code = substr(class, 1, 1)
+  )
 
 # Query all active north tri agencies from base year
 north_tri_agencies <- lookup_agency(
@@ -109,7 +115,7 @@ north_tri_tif_dists <- dbGetQuery(
            FROM tif_distribution
            WHERE year = {base_year}
            AND tax_code_num IN ({north_tri_tax_codes$tax_code_num*})",
-           .con = ptaxsim_db_conn
+    .con = ptaxsim_db_conn
   )
 )
 
@@ -147,10 +153,10 @@ est_eav_tax_code <- north_tri_pins %>%
     est_taxable_eav = sum(est_taxable_eav)
   ) %>%
   left_join(north_tri_tif_dists %>%
-              select(
-                tax_code = tax_code_num,
-                tax_code_frozen_eav
-              ), by = "tax_code") %>%
+    select(
+      tax_code = tax_code_num,
+      tax_code_frozen_eav
+    ), by = "tax_code") %>%
   # If tax code is in TIF, keep EAV frozen if the estimated EAV is greater than frozen EAV
   mutate(
     base_year_taxable_eav = case_when(
@@ -257,6 +263,6 @@ addStyle(
   gridExpand = TRUE
 )
 
-saveWorkbook(wb, "data/output/Tax_Rate_Estimates_23_25.xlsx",
-             overwrite = TRUE
+saveWorkbook(wb, "articles/Tax_Rate_Estimates_23_25.xlsx",
+  overwrite = TRUE
 )
