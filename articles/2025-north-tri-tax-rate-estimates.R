@@ -62,13 +62,6 @@ north_tri_pins <- GET(
 
 north_tri_pins <- fromJSON(rawToChar(north_tri_pins$content))
 
-# Get the township names for each taxcode so we find the tax rate distributions
-# for each North Tri township. In some rare cases in Cook County, a taxcode can
-# cover multiple townships, but in the North Tri each taxcode is unique to a township.
-tax_code_to_townships <- north_tri_pins %>%
-  group_by(tax_code) %>%
-  summarise(township_name = first(township_name))
-
 # Query the PTAXSIM database for taxcode tax rates
 north_tri_tax_codes <- dbGetQuery(
   ptaxsim_db_conn,
@@ -80,10 +73,7 @@ north_tri_tax_codes <- dbGetQuery(
     ",
     .con = ptaxsim_db_conn
   )
-) %>%
-  left_join(tax_code_to_townships, by = c("tax_code_num" = "tax_code"))
-
-rm(tax_code_to_townships)
+)
 
 # Look up detailed PIN table w/ exemption details for north tri
 north_tri_pins_exemptions <- lookup_pin(
