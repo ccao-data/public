@@ -26,10 +26,14 @@ base_year <- 2023
 # We use 2023 sales and assessment ratio studies from IDOR/
 # Cook County commercial sales ratio study to determine the projected
 # percent increase of property values for 2025 (we assume that assessment levels
-# rise to market levels.
-class_2_ratio <- .081
-class_3_ratio <- .0594
-class_5_ratio <- .7179
+# rise to market levels).
+# Link to IDOR assessment ratios:
+# tax.illinois.gov/content/dam/soi/en/web/tax/research/taxstats/propertytaxstatistics/documents/2022%20TABLE%201.pdf
+# Link to CCAO commercial report w/ sales ratio study:0
+# www.cookcountyil.gov/service/property-tax-reform-grou
+class_2_assessment_ratio <- .081
+class_3_assessment_ratio <- .0594
+class_5_sale_ratio <- .7179
 
 
 # Assessment ratios for classes 2, 3 for the North Tri from IDOR were converted
@@ -37,7 +41,7 @@ class_5_ratio <- .7179
 est_increases <- data.frame(
   class = c("2", "3", "5"),
   ratio =
-    c(class_2_ratio, class_3_ratio, class_5_ratio)
+    c(class_2_assessment_ratio, class_3_assessment_ratio, class_5_sale_ratio)
 ) %>%
   mutate(
     fmv_ratio = ifelse(stringr::str_sub(class, 1, 1) == "5", ratio,
@@ -62,24 +66,8 @@ north_tri_pins <- GET(
 
 north_tri_pins <- fromJSON(rawToChar(north_tri_pins$content))
 
-# Query the PTAXSIM database for taxcode tax rates
-north_tri_tax_codes <- dbGetQuery(
-  ptaxsim_db_conn,
-  glue_sql("
-    SELECT DISTINCT year, tax_code_num, tax_code_rate
-    FROM tax_code
-    WHERE tax_code_num IN ({north_tri_pins$tax_code*})
-    AND year = {base_year}
-    ",
-    .con = ptaxsim_db_conn
-  )
-)
-
-# Look up detailed PIN table w/ exemption details for north tri
-north_tri_pins_exemptions <- lookup_pin(
-  base_year,
-  north_tri_pins$pin
-)
+# Create unique list of all tax codes associated with North tri PINs
+north_tri_tax_codes <- unique(north_tri_pins$tax_code)
 
 # The lookup_pin function queries the PTAXSIM database for all info related to
 # the PIN's AV, EAV and exemptions
@@ -101,7 +89,7 @@ north_tri_pins <- north_tri_pins_exemptions %>%
 # Query all active north tri agencies from base year
 north_tri_agencies <- lookup_agency(
   as.integer(base_year),
-  north_tri_tax_codes$tax_code_num
+  north_tri_tax_codes
 ) %>%
   filter(agency_total_ext > 0)
 
@@ -112,7 +100,7 @@ north_tri_tif_dists <- dbGetQuery(
            SELECT *
            FROM tif_distribution
            WHERE year = {base_year}
-           AND tax_code_num IN ({north_tri_tax_codes$tax_code_num*})",
+           AND tax_code_num IN ({north_tri_tax_codes*})",
     .con = ptaxsim_db_conn
   )
 )
@@ -173,7 +161,6 @@ est_eav_tax_code <- north_tri_pins %>%
 # Sum the calculated base and projected EAV to agency level, these amounts will
 # be used in Excel WB to calculate agency tax rates
 agencies_new_eav <- north_tri_agencies %>%
-  filter(year == base_year) %>%
   left_join(est_eav_tax_code, by = "tax_code") %>%
   group_by(agency_name, agency_num, agency_major_type) %>%
   summarise(
@@ -187,13 +174,11 @@ agencies_new_eav <- north_tri_agencies %>%
 
 # Define anticipated agency levy growth from 2023 to 2025
 # We assume a 4% yoy growth for agency levies, meaning an 8% growth for 2023-2025
-
 levy_perc_growth <- .08
 
 # Calculate the agency tax rates, calculating new base by adding
 # "est_added_agency_eav_25" to the "agency_base_year_eav_clerk" in order
 # to account for non-north tri portions of the base
-
 agency_rates <- agencies_new_eav %>%
   mutate(
     est_agency_ext_25 = agency_total_ext * (1 + levy_perc_growth),
