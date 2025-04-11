@@ -28,9 +28,9 @@ base_year <- 2023
 # percent increase of property values for 2025 (we assume that assessment levels
 # rise to market levels).
 # Link to IDOR assessment ratios:
-# tax.illinois.gov/content/dam/soi/en/web/tax/research/taxstats/propertytaxstatistics/documents/2022%20TABLE%201.pdf
-# Link to CCAO commercial report w/ sales ratio study:0
-# www.cookcountyil.gov/service/property-tax-reform-grou
+# https://tax.illinois.gov/content/dam/soi/en/web/tax/research/taxstats/propertytaxstatistics/documents/2022%20TABLE%201.pdf
+# Link to CCAO commercial report w/ sales ratio study:
+# https://www.cookcountyil.gov/service/property-tax-reform-group
 class_2_assessment_ratio <- .081
 class_3_assessment_ratio <- .0594
 class_5_sale_ratio <- .7179
