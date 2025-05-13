@@ -19,21 +19,18 @@ AWS_ATHENA_CONN_NOCTUA <- dbConnect(noctua::athena(), rstudio_conn_tab = FALSE)
 # The only difference should be a very slight change in the universe of parcels
 # available since this query uses 2024 and older data while the open data portal
 # asset only has 2025 data.
-universe <- dbGetQuery(
-  conn = AWS_ATHENA_CONN_NOCTUA,
-  read_file("universe.sql")
-)
+universe <- dbGetQuery(conn = AWS_ATHENA_CONN_NOCTUA, read_file("universe.sql"))
 
 # Connect to PTAXSIM. See how to download and use PTAXSIM here:
 # https://github.com/ccao-data/ptaxsim?tab=readme-ov-file#database-installation
-ptaxsim_db_conn <- DBI::dbConnect(RSQLite::SQLite(), "data/input/ptaxsim-2023.0.0.db")
+ptaxsim_db_conn <- DBI::dbConnect(
+  RSQLite::SQLite(),
+  "data/input/ptaxsim-2023.0.0.db"
+  )
 
 # Gather exemptions by PIN for 2020-2023. Formats exemption columns to be
 # concatenated in R.
-tax <- dbGetQuery(
-  conn = ptaxsim_db_conn,
-  read_file("tax.sql")
-)
+tax <- dbGetQuery(conn = ptaxsim_db_conn, read_file("tax.sql"))
 
 # Function to calculate diff between year and previous year exemptions
 exe_diff <- \(x, years) {
