@@ -8,7 +8,6 @@ library(purrr)
 library(readr)
 library(skimr)
 library(stringr)
-library(tidycensus)
 library(tidyr)
 
 # Connect to Athena
