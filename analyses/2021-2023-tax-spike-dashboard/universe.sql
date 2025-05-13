@@ -14,13 +14,15 @@ WITH vpu AS (
         census_state_senate_num AS state_senate_district,
         cook_commissioner_district_num AS cook_commissioner_district,
         chicago_community_area_name AS chicago_community_area,
-        ROW_NUMBER() OVER (PARTITION BY pin ORDER BY year DESC) AS rank
+        ROW_NUMBER() OVER (
+            PARTITION BY pin
+            ORDER BY year DESC
+        ) AS rank
     FROM default.vw_pin_universe
     WHERE year < '2025'
 
 )
 
-SELECT
-    *
+SELECT *
 FROM vpu
-WHERE vpu.rank = 1
+WHERE rank = 1
