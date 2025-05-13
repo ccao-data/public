@@ -26,7 +26,7 @@ universe <- dbGetQuery(conn = AWS_ATHENA_CONN_NOCTUA, read_file("universe.sql"))
 ptaxsim_db_conn <- DBI::dbConnect(
   RSQLite::SQLite(),
   "data/input/ptaxsim-2023.0.0.db"
-  )
+)
 
 # Gather exemptions by PIN for 2020-2023. Formats exemption columns to be
 # concatenated in R.
