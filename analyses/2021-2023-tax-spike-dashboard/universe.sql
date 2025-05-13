@@ -1,4 +1,4 @@
--- Script to grab most recent census tract geoid for each PIN
+-- Script to grab most recent political districts geoid for each PIN
 WITH vpu AS (
     SELECT
         pin,
