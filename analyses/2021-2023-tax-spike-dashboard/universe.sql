@@ -1,7 +1,4 @@
--- Script to gather ptax data from Athena tax db. Formats exemption columns
--- to be concanenated in R.
-
--- Grab most recent census tract geoid for each PIN
+-- Script to grab most recent census tract geoid for each PIN
 WITH vpu AS (
     SELECT
         pin,
