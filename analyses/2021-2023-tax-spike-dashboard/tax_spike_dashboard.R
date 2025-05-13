@@ -90,4 +90,6 @@ tax %>%
   exe_diff(20:22) %>%
   rename_with(~ toupper(gsub("_", " ", .x)), .cols = everything()) %>%
   # Output data
-  (\(output) { write.xlsx("data/output/tax_spike_dashboard.xlsx") })
+  (\(output) {
+    write.xlsx("data/output/tax_spike_dashboard.xlsx")
+  })
