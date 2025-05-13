@@ -89,7 +89,12 @@ tax %>%
   filter(if_any(starts_with("CLASS"), ~ . == "2")) %>%
   exe_diff(20:22) %>%
   rename_with(~ toupper(gsub("_", " ", .x)), .cols = everything()) %>%
-  # Output data
   (\(output) {
-    write.xlsx("data/output/tax_spike_dashboard.xlsx")
+    # Output data
+    write.xlsx(output, "data/output/ptax.xlsx")
+
+    # Output skimr check of data
+    skim(output) %>%
+      select("variable" = "skim_variable", "n_missing", "complete_rate") %>%
+      write_delim(file.path("data/output", "check.csv"), delim = ",")
   })
