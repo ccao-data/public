@@ -17,7 +17,6 @@ WITH vpu AS (
         ) AS rank
     FROM default.vw_pin_universe
     WHERE year < '2025'
-
 )
 
 SELECT *
