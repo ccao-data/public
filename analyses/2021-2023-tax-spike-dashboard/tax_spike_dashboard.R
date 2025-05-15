@@ -83,7 +83,7 @@ tax %>%
   ) %>%
   # Remove any parcels that have never been class 2 2020-2023
   filter(if_any(starts_with("CLASS"), ~ . == "2")) %>%
-  exe_diff(20:22) %>%
+  exe_diff(years = 20:22) %>%
   rename_with(~ toupper(gsub("_", " ", .x)), .cols = everything()) %>%
   (\(output) {
     # Output data
