@@ -1,0 +1,1109 @@
+---
+title: "Residential Tax and AV Analysis"
+author: "Marie Farhat - Data Intern, Cook County Assessor's Office"
+format:
+  html:
+    embed-resources: true
+editor: visual
+---
+
+```{r libraries, echo=FALSE, message=FALSE, warning=FALSE}
+library(DBI)
+library(RSQLite)
+library(ptaxsim)
+library(dplyr)
+library(tidyverse)
+library(httr)
+library(jsonlite)
+library(ccao)
+library(ggplot2)
+library(plotly)
+library(statip)
+library(scales)
+library(crosstalk)
+library(htmltools)
+library(knitr)
+library(rmarkdown)
+```
+
+```{r db_open, echo=FALSE, warning=FALSE}
+###### Open PTAXSIM Connection ######
+ptaxsim_db_conn <- dbConnect(RSQLite::SQLite(), "./ptaxsim.db")
+```
+
+```{r db_queries, echo=FALSE, warning=FALSE}
+###### PTAXSIM Queries ######
+# Equalizing factors after 2017
+eq_df <- dbGetQuery(
+  ptaxsim_db_conn, "SELECT * FROM eq_factor WHERE year > 2017"
+)
+
+# PIN data after 2017
+pin_df <- dbGetQuery(
+  ptaxsim_db_conn, "SELECT * FROM pin WHERE year > 2017"
+)
+
+# Tax code data
+tax_code_df <- dbGetQuery(
+  ptaxsim_db_conn, "SELECT DISTINCT tax_code_num, agency_num FROM tax_code"
+)
+
+# Municipality data
+muni_agency_df <- dbGetQuery(
+  ptaxsim_db_conn, "SELECT DISTINCT agency_num, agency_name FROM agency_info WHERE minor_type = 'MUNI'"
+)
+```
+
+```{r db_close, echo=FALSE, warning=FALSE}
+###### Close PTAXSIM Connection ######
+dbDisconnect(ptaxsim_db_conn)
+```
+
+```{r table_joins, echo=FALSE, warning=FALSE}
+###### Table Joins in R ######
+
+# Join tax codes with municipality information
+tax_code_muni <- tax_code_df %>%
+  inner_join(muni_agency_df, by = "agency_num")
+
+# Join PIN data with taxcode, muni data and eq
+all_pins <- pin_df %>%
+  left_join(tax_code_muni, by = "tax_code_num") %>%
+  left_join(eq_df, by = "year") %>%
+  arrange(agency_name, desc(year))
+```
+
+```{r custom_calcs, echo=FALSE, warning=FALSE}
+###### Custom Calcs ######
+all_pins <- all_pins %>% mutate(
+  # Sum of total exemptions by pin (excluding abatement)
+  exe_total = rowSums(select(., starts_with("exe_"))[, -exe_abate], na.rm = TRUE),
+
+  # Class identifier (is the pin residential or commercial)
+  is_res = grepl("^2", class),
+  is_com = grepl("^5", class),
+
+  # Equalized AV calculation (equalizer x AV - exemptions)
+  eav = (eq_factor_final * av_clerk) - exe_total,
+
+  # Township code and name
+  township_code = substr(as.character(tax_code_num), 1, 2),
+  township_name = town_convert(township_code),
+
+  # Triad name
+  triad_name = town_get_triad(township_code, name = TRUE),
+
+  # Reassessment year
+  reassessment_year = town_get_assmnt_year(township_code, year)
+) %>%
+  # Sort by pin and year
+  arrange(pin, desc(year)) %>%
+  # Keep certain columns
+  select(
+    year, pin, class, is_res, is_com, agency_name,
+    township_code, township_name, triad_name, reassessment_year,
+    tax_code_num, tax_bill_total, exe_total,
+    av_certified, av_clerk, eav
+  )
+```
+
+## Part 1: Analyzing the Residential Share of AV and Taxes billed
+
+### Does a change in the residential share of AV mean a proportional change in residential tax burden?
+
+With reassessments affecting a third of Cook County each year, homeowners want to know how their share of the property tax burden might change. In some years, residential taxes billed shift in proportion to the share of assessed value. In other years, the shift is disproportionate. **This analysis examines whether we can state that the residential tax burden changes proportionally to the change in share of residential assessed value.**
+
+**Defining terms:**
+
+-   The percent share of residential assessed value (AV) is defined as the fraction of Class 2 AV from the area's (County, Triad, or Municipality) total assessed value.
+
+-   The percent share of residential tax is defined as the fraction of Class 2 taxes from the area's (County, Triad, or Municipality) total property taxes.
+
+**How we calculated residential share of AV, taxes billed, and other elements of this report:**
+
+This report analyzes the *shares* of AV and taxes billed for Class 2 properties within Cook County. To demonstrate how we calculated these values, let's dive into the 2023 tax year, where Cook County observed the following figures:
+
+```{r example_23_calcs, echo=FALSE, warning=FALSE}
+# 2023 County Data for following example
+pins_2023 <- all_pins %>% filter(year == 2023)
+res_pins_2023 <- pins_2023 %>% filter(is_res == TRUE)
+
+# Calculate AV values
+total_av <- round(sum(pins_2023$av_clerk) / 1000000, 2)
+res_av <- round(sum(res_pins_2023$av_clerk) / 1000000, 2)
+res_av_share <- round((res_av / total_av) * 100, 2)
+
+# Calculate Tax values
+total_tax <- round(sum(pins_2023$tax_bill_total) / 1000000, 2)
+res_tax <- round(sum(res_pins_2023$tax_bill_total) / 1000000, 2)
+res_tax_share <- round((res_tax / total_tax) * 100, 2)
+```
+
+-   Assessed Value
+
+    -   Total AV: \$78.9 B
+
+    -   Residential AV: \$46.7 B
+
+    -   Residential *share* of AV: 59%
+
+-   Taxes billed
+
+    -   Total taxes billed: \$18.3 B
+
+    -   Residential taxes billed: \$10.4 B
+
+    -   Residential *share* of taxes billed: 57%
+
+Notice how the share of Class 2 AV is not equal to the share of class 2 taxes billed – we can observe a 2.14 point difference between both shares. In fact, this gap between the shares is observable across multiple years.
+
+In this report, we will observe how residential shares of AV and Tax have changed over time, and dive into the annual changes within Cook County, each Triad, and across municipalities.
+
+```{r base_function, echo=FALSE, warning=FALSE}
+####### Base function ##########
+# Calculates residential shares of AV and Tax, and differences
+
+summarize_residential_shares <- function(
+    data, group_vars = "year",
+    av_col = "av_clerk",
+    tax_col = "tax_bill_total",
+    res_flag = "is_res",
+    reassess_year_col = "reassessment_year",
+    year_col = "year") {
+  group_syms <- syms(group_vars)
+  av_sym <- sym(av_col)
+  tax_sym <- sym(tax_col)
+  res_sym <- sym(res_flag)
+  reassess_sym <- sym(reassess_year_col)
+  year_sym <- sym(year_col)
+  grouping_for_lag <- setdiff(group_vars, year_col)
+  group_syms_lag <- syms(grouping_for_lag)
+
+  data %>%
+    group_by(!!!group_syms) %>%
+    summarise(
+      total_av = sum(!!av_sym, na.rm = TRUE),
+      total_tax = sum(!!tax_sym, na.rm = TRUE),
+      res_av = sum(if_else(!!res_sym, !!av_sym, 0), na.rm = TRUE),
+      res_tax = sum(if_else(!!res_sym, !!tax_sym, 0), na.rm = TRUE),
+      res_av_share = round(100 * res_av / total_av, 2),
+      res_tax_share = round(100 * res_tax / total_tax, 2),
+      difference = res_av_share - res_tax_share,
+      reassess_year = mfv(if_else(!!year_sym == !!reassess_sym, TRUE, FALSE)),
+      .groups = "drop"
+    ) %>%
+    arrange(!!!group_syms) %>%
+    group_by(!!!group_syms_lag) %>%
+    mutate(
+      diff_res_av_share = res_av_share - lag(res_av_share),
+      diff_res_tax_share = res_tax_share - lag(res_tax_share)
+    ) %>%
+    ungroup()
+}
+```
+
+#### County-level analysis
+
+```{r county_data, echo=FALSE, warning=FALSE}
+# Aggregate pin data by year for county level stats
+county_totals <- summarize_residential_shares(all_pins)
+```
+
+The residential share of AV has consistently sat higher than the residential share of taxes billed, where share of AV has on average been 2.7 percentage points higher than the share of taxes billed. This gap between AV and tax share can be largely explained by the fact that taxes billed are based on a property's taxable Equalized Assessed Value, which is reduced by its total exemptions. Only residential properties can qualify for exemptions, meaning the share of residential AV will not be equal to the share of taxable EAV, once exemptions are applied. Thus, we can't say that residential properties should expect to pay taxes proportionate to their share of AV.
+
+Visualizing the residential shares of AV and Tax demonstrates the difference between each share, and illustrates how this difference is sustained over time:
+
+##### Cook County: Share of residential of AV compared to Tax over time
+
+```{r county_share_lines, echo=FALSE, warning=FALSE}
+##### County Shares of AV and Tax #####
+county_shares <- plot_ly(county_totals, type = "scatter", mode = "lines") %>%
+  add_trace(
+    x = ~year,
+    y = ~res_tax_share,
+    name = "Tax Share",
+    mode = "lines+text",
+    line = list(color = "#29428D", width = 3),
+    text = ~ paste(res_tax_share, "%"),
+    textfont = list(color = "#29428D", size = 13),
+    textposition = "top center",
+    hovertemplate = ~ paste0(
+      "Res Tax Share: ", res_tax_share, "%<br>",
+      "Res Tax: $", round(res_tax / 1e9, 2), " B<br>",
+      "Total Tax: $", round(total_tax / 1e9, 2), " B"
+    )
+  ) %>%
+  add_trace(
+    x = ~year,
+    y = ~res_av_share,
+    name = "AV Share",
+    mode = "lines+text",
+    line = list(color = "#006F45", width = 3),
+    fill = "tonexty",
+    fillcolor = "rgba(0, 111, 69, 0.25)",
+    text = ~ paste(res_av_share, "%"),
+    textfont = list(color = "#006F45", size = 13),
+    textposition = "top center",
+    hovertemplate = ~ paste0(
+      "Res AV Share: ", res_av_share, "%<br>",
+      "Res AV: $", round(res_av / 1e9, 2), " B<br>",
+      "Total AV: $", round(total_av / 1e9, 2), " B"
+    )
+  ) %>%
+  layout(
+    xaxis = list(title = ""),
+    yaxis = list(
+      title = "Residential Share",
+      ticksuffix = "%"
+    ),
+    legend = list(
+      orientation = "h",
+      x = 0.5, xanchor = "center",
+      y = -0.2, yanchor = "bottom"
+    )
+  )
+#### View county shares ####
+county_shares
+```
+
+To the naked eye, both share lines appear to be parallel, following identical trends. However, if we examine the shaded area representing the difference in shares, we'll see that isn't consistently even as time goes on:
+
+##### Cook County: Amount by which share of residential AV is higher than Tax
+
+```{r county_diffs, echo=FALSE, warning=FALSE}
+###### County Diff Plot ######
+
+# Precompute stats for annotation/line
+mean_diff <- mean(county_totals$difference, na.rm = TRUE)
+last_year <- max(county_totals$year, na.rm = TRUE)
+first_year <- min(county_totals$year, na.rm = TRUE) + 1
+
+county_diffs <- ggplot(
+  county_totals,
+  aes(
+    x = factor(year),
+    y = difference,
+    text = paste(
+      " AV Share : ", res_av_share, "%<br>",
+      "Tax Share : ", res_tax_share, "%<br>",
+      "Difference: ", difference, "%"
+    )
+  )
+) +
+  geom_col(fill = "#006F45", alpha = 0.25, show.legend = TRUE) +
+  scale_y_continuous(labels = function(x) paste0(x, "%")) +
+  geom_hline(
+    yintercept = mean_diff,
+    linetype = "dashed", linewidth = 0.8, color = "gray40"
+  ) +
+  geom_text(
+    aes(
+      factor(first_year),
+      mean_diff,
+      label = paste0("Mean difference: ", round(mean_diff, 2), " %")
+    ),
+    vjust = -1, nudge_x = -0.5, nudge_y = 0.2,
+    size = 3.5, color = "gray40"
+  ) +
+  labs(
+    x = NULL,
+    y = "AV Share minus Tax Share",
+    fill = NULL,
+    color = NULL
+  ) +
+  theme(
+    legend.position = "top",
+    legend.justification = "center",
+    legend.title = NULL
+  ) +
+  scale_fill_manual(values = c("AV minus Tax" = "#006F45")) +
+  scale_color_manual(values = c("Mean difference" = "gray40")) +
+  theme_minimal()
+
+
+county_diffs <- ggplotly(county_diffs, tooltip = "text")
+
+##### View County Diffs ####
+county_diffs
+```
+
+The difference in residential share of AV and Tax narrows beginning in 2020, with the 6-year average share difference at roughly 2.7 percent.
+
+However, the mere difference in residential AV and Tax share doesn't answer the question of whether the residential share of Tax changes proportionally to AV. For that, we will take a look at the year-to-year *magnitude of change* in AV and Tax shares, to see if they fluctuate with the same magnitude.
+
+##### Cook County: Change in Residential Share of AV and Tax from Previous Year
+
+```{r county_yoy_diffs, echo=FALSE, warning=FALSE}
+##### County Share Changes #####
+county_yoy <- ggplot(
+  na.omit(county_totals),
+  aes(x = year, y = diff_res_av_share)
+) +
+
+  # AV cols
+  geom_col(
+    aes(
+      fill = "AV Share",
+      text = paste0(
+        year, " AV Share: ", res_av_share, "%<br>",
+        "Change from ", year - 1, ": ", round(diff_res_av_share, 2), "%"
+      )
+    ),
+    width = 0.4,
+    position = (position_nudge(x = -0.2))
+  ) +
+  geom_text(
+    aes(
+      fill = "AV Share",
+      y = ifelse(diff_res_av_share >= 0, diff_res_av_share + 0.06, diff_res_av_share - 0.08),
+      label = paste0(round(diff_res_av_share, 2), "%")
+    ),
+    nudge_x = -0.2,
+    size = 3, color = "#006F45"
+  ) +
+
+  # Tax cols
+  geom_col(
+    aes(
+      y = diff_res_tax_share,
+      fill = "Tax Share",
+      text = paste0(
+        year, " Tax Share: ", res_tax_share, "%<br>",
+        "Change from ", year - 1, ": ", round(diff_res_tax_share, 2), "%"
+      )
+    ),
+    width = 0.4,
+    position = position_nudge(x = 0.2)
+  ) +
+  geom_text(
+    aes(
+      fill = "Tax Share",
+      y = ifelse(diff_res_tax_share >= 0, diff_res_tax_share + 0.06, diff_res_tax_share - 0.08),
+      label = paste0(round(diff_res_tax_share, 2), "%")
+    ),
+    nudge_x = 0.2,
+    size = 3, color = "#29428D"
+  ) +
+
+  # 0% line
+  geom_hline(yintercept = 0, size = 0.25) +
+
+  # y-axis formatting
+  scale_y_continuous(
+    labels = function(x) paste0(x, "%")
+  ) +
+
+  # Other formatting
+  labs(
+    fill = NULL,
+    x = NULL,
+    y = "Change from Prior Year"
+  ) +
+  scale_fill_manual(values = c("AV Share" = "#006F45", "Tax Share" = "#29428D")) +
+  theme_minimal() +
+  theme(legend.title = NULL)
+
+ggplotly(county_yoy, tooltip = "text") %>%
+  style(hoverinfo = "text") %>%
+  layout(legend = list(
+    orientation = "h",
+    x = 0.5, xanchor = "center",
+    y = -0.2, yanchor = "bottom"
+  ))
+```
+
+The chart above shows the change in residential share of AV and Tax from the previous year. Let's examine the change from 2022 to 2023:
+
+-   In 2022, the County's residential share of AV was 58.42%, and in 2023 it increased to 59.18%, indicating an increase of 0.76 percentage points from the previous year.
+
+-   In 2022, the County's residential share of Tax was 55.81%, and in 2023 it increased to 57%, indicating an increase of 1.19 percentage points from the previous year.
+
+-   In other words, **the share of residential Tax grew more than the share of residential AV from 2022 to 2023**.
+
+We can see that the *magnitude of change* in residential share of AV and Tax isn't always equal. In some years, such as 2019 and 2020, both shares changed by similar amounts. However, from 2021 to 2023, the magnitudes begin to noticeably differ. Thus, for the entire county, **we can't claim that the annual change in residential share of Tax will always be proportional to the residential share of AV.** The disproportion is difficult to predict without taking factors such as exemptions and commercial appeals into consideration.
+
+#### Triad-level analysis
+
+```{r triad_data, echo=FALSE, warning=FALSE}
+# Aggregate pin data by triad and year for triad level stats
+triad_totals <- summarize_residential_shares(all_pins, c("triad_name", "year"))
+```
+
+When studying the relationship between share of residential AV and share of residential tax by Triad, we continue to observe that share of AV is higher than share of Tax. However, the difference in shares differs from Triad to Triad, likely due to characteristic differences and their proportions of property types.
+
+##### Triad: Residential share of AV compared to residential Tax share over time
+
+```{r tri_shares, echo=FALSE, warning=FALSE}
+# Pivot share data
+triad_ribbon_data <- triad_totals %>%
+  select(triad_name, year, reassess_year, res_av_share, res_tax_share) %>%
+  mutate(
+    ymin = pmin(res_av_share, res_tax_share),
+    ymax = pmax(res_av_share, res_tax_share)
+  )
+
+triad_share_pivot <- triad_totals %>%
+  pivot_longer(
+    cols = c("res_av_share", "res_tax_share"),
+    names_to = "type",
+    values_to = "share"
+  ) %>%
+  mutate(
+    type = recode(type,
+      "res_av_share" = "AV Share",
+      "res_tax_share" = "Tax Share"
+    ),
+    text = paste0(round(share, 2), "%")
+  ) %>%
+  select(triad_name, year, reassess_year, type, share, res_av, res_tax, total_av, total_tax, text) %>%
+  mutate(
+    res_av = paste0("Res AV: $", round(res_av / 1e9, 2), " B"),
+    res_tax = paste0("Res Tax: $", round(res_tax / 1e9, 2), " B"),
+    total_av = paste0("Triad AV: $", round(total_av / 1e9, 2), " B"),
+    total_tax = paste0("Triad Tax: $", round(total_tax / 1e9, 2), " B")
+  )
+
+
+# Plot
+triad_share_plot <- ggplot() +
+
+  # Shaded area between AV and Tax shares
+  geom_ribbon(
+    data = triad_ribbon_data,
+    aes(x = year, ymin = ymin, ymax = ymax),
+    fill = "#006F45", alpha = 0.25
+  ) +
+
+  # AV and Tax share lines
+  geom_line(
+    data = triad_share_pivot,
+    aes(x = year, y = share, color = type),
+    size = 1
+  ) +
+
+  # Hover info (hide actual points)
+  geom_point(
+    data = triad_share_pivot,
+    aes(
+      x = year, y = share, color = type,
+      text = paste0(
+        "Res ", type, ": ", text,
+        "<br>", ifelse(type == "AV Share", res_av, res_tax),
+        "<br>", ifelse(type == "AV Share", total_av, total_tax)
+      )
+    ),
+    alpha = 0
+  ) +
+
+  # Reassessment markers
+  geom_point(
+    data = triad_share_pivot %>% filter(reassess_year == TRUE, type == "Tax Share"),
+    aes(x = year, y = share, color = "Reassessment Year"),
+    size = 3, show.legend = TRUE
+  ) +
+  scale_y_continuous(labels = scales::label_number(suffix = "%")) +
+  scale_color_manual(values = c(
+    "AV Share" = "#006F45",
+    "Tax Share" = "#29428D",
+    "Reassessment Year" = "#29428D"
+  )) +
+  facet_wrap(~triad_name, ncol = 3) +
+  labs(x = "", y = "Residential Share") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+    legend.title = element_blank()
+  )
+
+# Convert to interactive plot
+ggplotly(triad_share_plot, tooltip = "text") %>%
+  layout(
+    legend = list(
+      title = list(text = ""),
+      orientation = "h",
+      x = 0.5, xanchor = "center",
+      y = -0.2, yanchor = "bottom"
+    )
+  )
+```
+
+The Triad residential AV and Tax share lines appear more jagged than that of the entire county, largely due to shifts triggered by Reassessment Years. At the county level, these fluctuations tend to smooth out.
+
+Interestingly, the share lines appear to run parallel save for the most recent reassessment of the South Triad in 2023, where the gap between shares seems to narrow. This observation alone does not sufficiently indicate a changing relationship between residential AV and Tax, but could be worth investigating when future Triad reassessment data become available.
+
+With that in mind, let's examine the share differences by year within each Triad to observe whether a trend is visible.
+
+##### Triad: Portion of percent residential AV share that is higher than percent residential tax share
+
+```{r triad_diffs, echo=FALSE, warning=FALSE}
+# Mean diffs by triad
+mean_diffs <- triad_totals %>%
+  group_by(triad_name) %>%
+  summarize(
+    mean_diff = round(mean(difference, na.rm = TRUE), 2),
+    mean_year = mean(year)
+  )
+
+# Plot diffs
+triad_diffs <- ggplot(triad_totals, aes(
+  x = year,
+  y = difference,
+  text = paste(
+    " AV Share : ", res_av_share, "%<br>",
+    "Tax Share : ", res_tax_share, "%<br>",
+    "Difference: ", round(difference, 2), "%"
+  )
+)) +
+
+  # Bars
+  geom_col(
+    aes(fill = "AV minus Tax"),
+    alpha = 0.25
+  ) +
+
+  # Facets
+  facet_wrap(~triad_name, ncol = 3) +
+
+  # Mean line
+  geom_hline(
+    data = mean_diffs,
+    aes(
+      yintercept = mean_diff,
+      text = paste0(
+        "Triad Mean Difference: ", mean_diff, "%"
+      )
+    ),
+    color = "gray40",
+    linetype = "dashed", linewidth = 0.8
+  ) +
+
+  # Scales & labels
+  scale_fill_manual(values = c("AV minus Tax" = "#006F45")) +
+  scale_y_continuous(limits = c(0, 10), labels = function(x) paste0(x, "%")) +
+  labs(x = "", y = "AV Share minus Tax Share", fill = NULL, color = NULL) +
+
+
+  # Theme
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+
+# Convert to plotly
+triad_diffs <- ggplotly(triad_diffs, tooltip = "text")
+
+triad_diffs
+```
+
+Looking at the green bars representing residential AV share minus Tax share, we can see that they begin to shrink as time progresses. The South Triad has the highest difference of shares on average (6.8%), whereas the City (2.96%) and North Triads (3.76%) have smaller differences. Recalling that the County's average residential AV and Tax share differences from 2018-2023 was 2.7%, we can see that the City and North Triads skew the overall average difference.
+
+##### Triad: Change in Residential Share of AV and Tax from Previous Year
+
+```{r tri_yoy, echo=FALSE, warning=FALSE}
+triad_yoy <- ggplot(
+  na.omit(triad_totals),
+  aes(x = year, y = diff_res_av_share)
+) +
+
+  # AV cols
+  geom_col(
+    aes(
+      fill = "AV",
+      text = paste0(
+        year, " AV Share: ", res_av_share, "%<br>",
+        "Change from ", year - 1, ": ", round(diff_res_av_share, 2), "%"
+      )
+    ),
+    width = 0.4,
+    position = (position_nudge(x = -0.2))
+  ) +
+
+  # Tax cols
+  geom_col(
+    aes(
+      y = diff_res_tax_share,
+      fill = "Tax",
+      text = paste0(
+        year, " Tax Share: ", res_tax_share, "%<br>",
+        "Change from ", year - 1, ": ", round(diff_res_tax_share, 2), "%"
+      )
+    ),
+    width = 0.4,
+    position = position_nudge(x = 0.2)
+  ) +
+  # 0% line
+  geom_hline(yintercept = 0, size = 0.25) +
+
+  # y-axis formatting
+  scale_y_continuous(
+    labels = function(x) paste0(x, "%")
+  ) +
+
+  # Other formatting
+  labs(
+    fill = NULL,
+    x = NULL,
+    y = "Change from Prior Year"
+  ) +
+  scale_fill_manual(values = c(
+    "AV" = "#006F45",
+    "Tax" = "#29428D"
+  )) +
+  facet_wrap(~triad_name, ncol = 3) +
+  theme_minimal() +
+  theme(legend.title = NULL, axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplotly(triad_yoy, tooltip = "text") %>%
+  layout(legend = list(
+    orientation = "h",
+    x = 0.5, xanchor = "center",
+    y = -0.2, yanchor = "bottom"
+  ))
+```
+
+When observing the year-to-year change within each share across Triads, we can see certain patterns emerge:
+
+-   City annual residential AV and Tax shifts appear more even and stable to the naked eye, bounded between -2% and 1% from 2018 to 2023. In other words, the annual trends in share of residential AV and Tax are mostly flat.
+
+-   North annual residential AV and Tax shifts exceed the City's own bounds, sitting between -3% and 4%. The larger shifts in 2019 and 2022 coincide with reassessment years. Despite these relatively larger fluctuations, the changes in residential AV and Tax share are still relatively even within each year.
+
+-   South annual residential AV and Tax shifts resemble the City's pattern up until 2023, during South Triad's most recent reassessment year. The most pronounced change in shares is from 2022 to 2023, where residential Tax share grew by 5.39 percentage points, which is nearly 2 points higher than AV's growth of 3.54 percentage points.
+
+#### Municipality-level analysis
+
+```{r muni_data, echo=FALSE, warning=FALSE}
+# Aggregate pin data by triad and year for triad level stats
+muni_data <- summarize_residential_shares(all_pins, c("agency_name", "year"))
+```
+
+Municipality residential Tax and AV shares tend to follow similar behaviors as their respective triads during reassessment years. Some municipalities will naturally have a higher share of residential AV and Tax due to the residential and commercial makeup of the area, with some municipalities skewing more residential than others.
+
+##### Municipality: residential share of AV compared to residential tax share over time
+
+```{r muni_plots, echo=FALSE, warning=FALSE}
+#### Prep data ####
+muni_prepped <- muni_data %>%
+  arrange(agency_name, year) %>%
+  group_by(agency_name) %>%
+  mutate(mean_diff = mean(difference, na.rm = TRUE)) %>%
+  ungroup() %>%
+  filter(res_av > 0) %>%
+  filter(!is.na(agency_name)) # Filtering out any munis with no class 2s
+
+years_all <- sort(unique(muni_prepped$year))
+
+# Shared data across muni plots (same grouping so plots are synced)
+sd_all <- SharedData$new(muni_prepped,
+  key = ~agency_name, group = "muni"
+)
+
+sd_reassess <- SharedData$new(
+  filter(
+    muni_prepped,
+    reassess_year
+  ),
+  key = ~agency_name, group = "muni"
+)
+
+#### Configure dropdown logic ####
+
+# Default municipality in dropdown
+ctrl <- filter_select(
+  id = "agency_pick",
+  label = "",
+  sharedData = sd_all,
+  group = ~agency_name,
+  multiple = FALSE
+)
+```
+
+```{r muni_top, echo=FALSE, warning=FALSE}
+# TOP plot (share lines) ####
+muni_top <- plot_ly(sd_all) %>%
+  # Tax share
+  add_lines(
+    x = ~year, y = ~res_tax_share, name = "Tax Share",
+    line = list(color = "#29428D", width = 3),
+    hovertemplate = ~ paste0(
+      "Res Tax Share: ", res_tax_share, "%<br>",
+      "Res Tax: $", round(res_tax / 1e6, 2), " M<br>",
+      "Total Tax: $", round(total_tax / 1e6, 2), " M"
+    )
+  ) %>%
+  # AV share
+  add_lines(
+    x = ~year, y = ~res_av_share, name = "AV Share",
+    line = list(color = "#006F45", width = 3),
+    fill = "tonexty", fillcolor = "rgba(46,139,87,0.25)",
+    hovertemplate = ~ paste0(
+      "Res AV Share: ", res_av_share, "%<br>",
+      "Res AV: $", round(res_av / 1e6, 2), " M<br>",
+      "Total AV: $", round(total_av / 1e6, 2), " M"
+    )
+  ) %>%
+  # Reassessment year
+  add_markers(
+    data = sd_reassess, x = ~year, y = ~res_tax_share, name = "Reassessment Year",
+    marker = list(symbol = "circle", size = 12, color = "#29428D"),
+    hoverinfo = "skip"
+  ) %>%
+  # Layout
+  layout(
+    xaxis = list(
+      title = "", tickmode = "array",
+      tickvals = years_all,
+      ticktext = years_all, showgrid = TRUE
+    ),
+    yaxis = list(
+      title = "Residential Share",
+      ticksuffix = "%"
+    ),
+    legend = list(
+      orientation = "h",
+      x = 0.5, xanchor = "center",
+      y = -0.2, yanchor = "bottom"
+    ),
+    uirevision = "keep",
+    height = 400,
+    margin = list(l = 50, r = 10, t = 20, b = 90)
+  )
+```
+
+```{r muni_mid, echo=FALSE, warning=FALSE}
+#### MIDDLE plot (diff chart) ####
+muni_mid <- plot_ly(sd_all) %>%
+  # Diff bars
+  add_bars(
+    x = ~ factor(year), y = ~difference, name = "AV minus Tax",
+    marker = list(color = "rgba(46,139,87,0.25)"),
+    hovertemplate = ~ paste0(
+      "AV Share: ", res_av_share, "%<br>",
+      "Tax Share: ", res_tax_share, "%<br>",
+      "Difference: ", round(difference, 2), "%"
+    )
+  ) %>%
+  # Mean diff
+  add_lines(
+    x = ~year, y = ~mean_diff,
+    name = "Mean difference",
+    mode = "lines",
+    line = list(dash = "dash", width = 2, color = "gray40"),
+    # color = "gray40",
+    marker = list(color = "gray40", size = 1),
+    hovertext = ~ paste0(
+      "Mean difference: ",
+      round(mean_diff, 2), "%"
+    ),
+    hoverinfo = "text"
+  ) %>%
+  # Layout
+  layout(
+    xaxis = list(
+      title = "", type = "category",
+      categoryorder = "array",
+      categoryarray = as.character(years_all),
+      tickmode = "array",
+      tickvals = as.character(years_all),
+      ticktext = years_all,
+      showgrid = TRUE,
+      showline = FALSE
+    ),
+    yaxis = list(title = "Share Difference", ticksuffix = "%"),
+    uirevision = "keep",
+    legend = list(
+      orientation = "h",
+      x = 0.5, xanchor = "center",
+      y = -0.25, yanchor = "bottom"
+    ),
+    height = 400,
+    margin = list(l = 50, r = 10, t = 20, b = 110)
+  )
+```
+
+```{r muni_bot, echo=FALSE, warning=FALSE}
+#### BOTTOM plot (change in share yoy) ####
+muni_bot <- plot_ly(sd_all) %>%
+  # AV share change
+  add_bars(
+    x = ~ factor(year), y = ~diff_res_av_share, name = "AV Share Change",
+    marker = list(color = "#006F45"),
+    alignmentgroup = "yoy", offsetgroup = "AV",
+    hovertemplate = ~ paste0(
+      year, " AV Share: ", res_av_share, "%<br>",
+      "Change from ", year - 1, ": ", round(diff_res_av_share, 2), "%"
+    )
+  ) %>%
+  # Tax share change
+  add_bars(
+    x = ~ factor(year), y = ~diff_res_tax_share, name = "Tax Share Change",
+    marker = list(color = "#29428D"),
+    alignmentgroup = "yoy", offsetgroup = "Tax",
+    hovertemplate = ~ paste0(
+      year, " Tax Share: ", res_tax_share, "%<br>",
+      "Change from ", year - 1, ": ", round(diff_res_tax_share, 2), "%"
+    )
+  ) %>%
+  # Layout
+  layout(
+    barmode = "group",
+    xaxis = list(
+      title = "", type = "category",
+      categoryorder = "array",
+      categoryarray = as.character(years_all),
+      tickmode = "array",
+      tickvals = as.character(years_all),
+      ticktext = years_all,
+      showgrid = TRUE
+    ),
+    yaxis = list(
+      title = "Change from Prior Year", ticksuffix = "%"
+    ),
+    uirevision = "keep",
+    legend = list(
+      orientation = "h",
+      x = 0.5, xanchor = "center",
+      y = -0.25, yanchor = "bottom"
+    ),
+    height = 400,
+    margin = list(l = 50, r = 10, t = 20, b = 110)
+  )
+```
+
+```{r muni_layout, echo=FALSE, warning=FALSE}
+#### Layout plots ####
+browsable(tagList(
+  ctrl,
+  div(style = "margin-top:6px; overflow:visible;", muni_top),
+  div(style = "margin-top:12px; overflow:visible;", muni_mid),
+  div(style = "margin-top:12px; overflow:visible;", muni_bot)
+))
+```
+
+```{=html}
+<script>
+(function waitForSelectize(){
+  const el = document.querySelector('#agency_pick .selectized');
+  if (el && el.selectize) {
+    el.selectize.setValue('CITY OF BERWYN', false);
+  } else {
+    requestAnimationFrame(waitForSelectize);
+  }
+})();
+</script>
+```
+
+One notable municipality is the Village of Willow Springs, which saw an anomalous decrease in its residential share of Tax compared to its share of AV in 2023. This municipality differs from the overall trend of its Triad (South), but can be explained by a recent and sudden increase in residential exemptions.
+
+## Part 2: Residential Vs. Commercial Median Tax Bills
+
+Knowing how the residential shares of AV and Tax change provides valuable insight into whether these shares shift proportionally. However, these changes are generally relative to how commercial properties behave within the context of property taxes. As such, it is helpful to understand how median tax bills have evolved across the County, Triads, and municipalities for Class 2 residential homeowners and Class 5 commercial properties.
+
+```{r med_tax_func, echo=FALSE, warning=FALSE}
+# Custom function returns a dataframe for each geographic grouping (County, Triad, Muni)
+
+get_median_tax <- function(data, group_vars = "year") {
+  group_syms <- syms(group_vars)
+
+  data %>%
+    group_by(!!!group_syms) %>%
+    summarise(
+      Residential = median(ifelse(is_res, tax_bill_total, NA), na.rm = TRUE),
+      Commercial = median(ifelse(is_com, tax_bill_total, NA), na.rm = TRUE),
+      res_pins = sum(is_res),
+      com_pins = sum(is_com),
+      .groups = "drop"
+    ) %>%
+    # Pivot dataframe so each row is a year and class group by geography
+    pivot_longer(
+      cols = c("Residential", "Commercial"),
+      names_to = "Class",
+      values_to = "Med_Tax"
+    )
+}
+```
+
+### County Median Tax
+
+Across Cook County, the median tax bill for homeowners appears to inversely related to the median tax bill for commercial properties. If the median commercial tax bill increases significantly, the median residential tax bill either decreases or stays relatively flat. The opposite appears to be true, where if the median commercial tax bills decreases significantly, the median residential tax bill will see a noticeable increase.
+
+##### County: Median tax bill for residential and commercial properties
+
+```{r county_med_tax, echo=FALSE, warning=FALSE}
+# Aggregate county level median tax data by year
+county_med_tax <- get_median_tax(all_pins, group_vars = "year")
+
+# Plot county data
+county_plot <- ggplot(county_med_tax, aes(x = year, y = Med_Tax, color = Class)) +
+  geom_line(size = 1) +
+  geom_point(alpha = 0, aes(
+    text = paste0(
+      "Median Tax Bill: $", round((Med_Tax / 1000), 2), "K<br>",
+      "PIN Count: ", ifelse(Class == "Commercial", com_pins, res_pins)
+    )
+  )) +
+  labs(
+    x = "",
+    y = "Median Property Tax Bill"
+  ) +
+  scale_y_continuous(
+    labels = label_dollar(scale = 1e-3, suffix = "K")
+  ) +
+  scale_color_manual(
+    values = c("Residential" = "#29428D", "Commercial" = "#FFAF00")
+  ) +
+  theme_minimal()
+
+ggplotly(county_plot, tooltip = "text") %>%
+  layout(legend = list(
+    title = list(text = "<b>Property Type</b>"),
+    orientation = "h",
+    x = 0.5, xanchor = "center",
+    y = -0.2, yanchor = "bottom"
+  ))
+```
+
+### Triad Median Tax
+
+In contrast to the County's median tax bills for residential and commercial properties, the Triad view of these trends tells a more nuanced story about the kinds of residential and commercial properties that makeup each Triad. Median commercial and residential property taxes will vary from Triad to Triad based on their unique composition of homes and businesses, along with taxing district demands and baseline rates.
+
+That said, each Triad shares the same inverse relationship between median residential and commercial property taxes as the entire county.
+
+##### Triad: Median tax bill for residential and commercial properties
+
+```{r triad_med_tax, echo=FALSE, warning=FALSE}
+# Aggregate triad level median tax data by year
+triad_med_tax <- get_median_tax(all_pins, group_vars = c("triad_name", "year"))
+
+# Plot triad median tax
+triad_plot <- ggplot(
+  triad_med_tax,
+  aes(
+    x = year, y = Med_Tax,
+    color = Class
+  )
+) +
+  geom_line(size = 1) +
+  geom_point(alpha = 0, aes(
+    text = paste0(
+      "Median Tax Bill: $", round((Med_Tax / 1000), 2), "K<br>",
+      "PIN Count: ", ifelse(Class == "Commercial", com_pins, res_pins)
+    )
+  )) +
+  labs(
+    x = "",
+    y = "Median Property Tax Bill"
+  ) +
+  labs(color = "Property Type") +
+  scale_y_continuous(
+    labels = label_dollar(scale = 1e-3, suffix = "K")
+  ) +
+  scale_color_manual(
+    values = c("Residential" = "#29428D", "Commercial" = "#FFAF00")
+  ) +
+  facet_wrap(~triad_name, ncol = 3) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+
+ggplotly(triad_plot, tooltip = "text") %>%
+  layout(legend = list(
+    title = list(text = "<b>Property Type</b>"),
+    orientation = "h",
+    x = 0.5, xanchor = "center",
+    y = -0.2, yanchor = "bottom"
+  ))
+```
+
+### Municipality Median Tax
+
+If Triads bring nuance to this analysis, then municipalities certainly require a higher degree of scrutiny and understanding of commercial and residential property dynamics. Some municipalities, such as the Village of Steger and Winnetka, will have a smooth median residential tax bill but an unpredictable median commercial property tax bill.
+
+Others, like the Village of Justice and the Village of Oak Park, encapsulate the same inverse relationship between residential and commercial median property taxes seen across the county and Triads.
+
+##### Municipality: Median tax bill for residential and commercial properties
+
+```{r muni_med_tax, echo=FALSE, warning=FALSE}
+# Aggregate municipality level median tax data by year
+muni_med_tax <- get_median_tax(all_pins, group_vars = c("agency_name", "year")) %>%
+  arrange(agency_name, year) %>%
+  # Filtering out any munis missing one or both property classes' med tax
+  group_by(agency_name) %>%
+  filter(all(!is.na(Med_Tax))) %>%
+  ungroup()
+
+# Unique municipalities and property types
+agencies <- unique(muni_med_tax$agency_name)
+classes <- unique(muni_med_tax$Class)
+
+# Initialize empty plot
+muni_plot <- plot_ly()
+
+# Add trace per agency and class
+for (agency in agencies) {
+  for (class in classes) {
+    subset_data <- muni_med_tax[
+      muni_med_tax$agency_name == agency & muni_med_tax$Class == class,
+    ]
+
+    muni_plot <- muni_plot %>% add_trace(
+      data = subset_data,
+      x = ~year,
+      y = ~ round(Med_Tax, 2),
+      type = "scatter",
+      mode = "lines",
+      name = paste(class),
+      line = list(
+        color = ifelse(
+          class == "Residential", "#29428D", "#FFAF00"
+        ),
+        width = 4
+      ),
+      visible = ifelse(agency == agencies[1], TRUE, FALSE),
+      hovertemplate = paste0(
+        "Median Tax Bill: $", round((subset_data$Med_Tax / 1000), 2), "K<br>",
+        "PIN Count: ", ifelse(subset_data$Class == "Commercial", subset_data$com_pins, subset_data$res_pins)
+      )
+    )
+  }
+}
+
+# Create dropdown buttons to toggle visibility
+buttons <- lapply(seq_along(agencies), function(i) {
+  visibility <- rep(FALSE, length(agencies) * length(classes))
+  idx_start <- (i - 1) * length(classes) + 1
+  idx_end <- i * length(classes)
+  visibility[idx_start:idx_end] <- TRUE
+
+  list(
+    method = "update",
+    args = list(
+      list(visible = visibility)
+    ),
+    label = agencies[i]
+  )
+})
+
+# Add layout with dropdown menu and axis labels
+muni_plot <- muni_plot %>% layout(
+  xaxis = list(title = ""),
+  yaxis = list(title = "Median Property Tax Bill", tickformat = "$,~s"),
+  updatemenus = list(list(
+    active = 0,
+    buttons = buttons,
+    x = 0,
+    y = 1.2,
+    xanchor = "left",
+    yanchor = "top"
+  )),
+  legend = list(
+    title = list(text = "<b>Property Type</b>"),
+    orientation = "h",
+    x = 0.5, xanchor = "center",
+    y = -0.2, yanchor = "bottom"
+  )
+)
+
+muni_plot
+```
+
+Each Triad, and subsequently each Municipality, has its own unique distribution of commercial and residential properties which tell more nuanced stories about their property taxes than can be assessed at the County level. That said, they all generally appear to share the same narrative and relationship between residential AV and Tax shares or median property taxes, indicating a unifying condition that ties them all together— whether its shared responses to economic conditions, consistent tax assessment policy, or the like.
