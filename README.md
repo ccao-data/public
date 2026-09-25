@@ -39,7 +39,7 @@ The Data Department has also done a reddit AMA, where we answered questions abou
 
 ## Data Publicly Available
 
-The Data Department publishes assessment-related data sets on the [Cook County Open Data Portal](https://datacatalog.cookcountyil.gov). You can find a full list of published data sets in our catalog of ['Assessor's Office Open Data'](https://datacatalog.cookcountyil.gov/stories/s/gzdr-q7c4). For a broad overview and description of the data we publish and our standards for publishing and maintaining open data, see the [Open Data SOP](https://github.com/ccao-data/wiki/blob/master/SOPs/Open-Data.md) on our wiki.
+The Data Department publishes assessment-related data sets on the [Cook County Open Data Portal](https://datacatalog.cookcountyil.gov). You can find a full list of published data sets in our catalog of ['Assessor's Office Open Data'](https://datacatalog.cookcountyil.gov/stories/s/gzdr-q7c4), along with our [Open Data SOP](https://github.com/ccao-data/wiki/blob/master/SOPs/Open-Data.md).
 
 The Data Department also created and maintains [PTAXSIM]([url](https://github.com/ccao-data/ptaxsim/)), a software package and analysis-ready database of property tax data.
 
@@ -74,8 +74,6 @@ When your issue is submitted, GitHub will notify Data Department staff. Your iss
 #### Data delivery
 
 When ready, your data will be saved on our public S3 bucket and a link will be shared in the issue comments. Your data will be saved with the issue ticket number in its name, e.g. `17-data-request.csv`. Your data will remain on S3 for one month - you should download it as soon as possible.
-
-If you specified in your issue that you would like the data delivered as a new [Open Data](#open-data) assets, then we will share a link in the issue comments once your asset is ready.
 
 ## Contact Us
 
