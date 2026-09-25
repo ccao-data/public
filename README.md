@@ -41,7 +41,7 @@ The Data Department has also done a reddit AMA, where we answered questions abou
 
 The Data Department publishes assessment-related data sets on the [Cook County Open Data Portal](https://datacatalog.cookcountyil.gov). You can find a full list of published data sets in our catalog of ['Assessor's Office Open Data'](https://datacatalog.cookcountyil.gov/stories/s/gzdr-q7c4), along with our [Open Data SOP](https://github.com/ccao-data/wiki/blob/master/SOPs/Open-Data.md).
 
-The Data Department also created and maintains [PTAXSIM]([url](https://github.com/ccao-data/ptaxsim/)), a software package and analysis-ready database of property tax data.
+The Data Department also created and maintains [PTAXSIM](https://github.com/ccao-data/ptaxsim/), a software package and analysis-ready database of property tax data.
 
 ## Data Requests
 
