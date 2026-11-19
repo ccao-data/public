@@ -11,6 +11,7 @@ library(openxlsx)
 
 noctua_options(unload = TRUE)
 AWS_ATHENA_CONN_NOCTUA <- dbConnect(noctua::athena(), rstudio_conn_tab = FALSE)
+public_folder <- Sys.getenv("AWS_PUBLIC_FOLDER")
 
 query <- "
 	SELECT leg.parid,
@@ -35,4 +36,4 @@ query <- "
 "
 
 dbGetQuery(conn = AWS_ATHENA_CONN_NOCTUA, query) %>%
-  write_parquet("output/legdat.parquet")
+  write_parquet(paste0(public_folder, "pdr-issue-0056.parquet"))
