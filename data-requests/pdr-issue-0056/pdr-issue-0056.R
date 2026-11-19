@@ -25,9 +25,9 @@ query <- "
 		leg.legal3,
 		leg.legdesc
 	FROM iasworld.legdat AS leg
-    -- Join on pardat to make sure we don't include any of the PINs that have
-    -- be reactivated for the treasurer.
-		INNER JOIN iasworld.pardat AS par ON leg.parid = par.parid
+	-- Join on pardat to make sure we don't include any of the PINs that have
+	-- be reactivated for the treasurer.
+	INNER JOIN iasworld.pardat AS par ON leg.parid = par.parid
 		AND leg.taxyr = par.taxyr
 		AND par.cur = 'Y'
 		AND par.deactivat is NULL
