@@ -8,10 +8,10 @@ library(openxlsx)
 # at PIN level. From your public dbt schema (iasworld.legdat.yml) and
 # service-sqoop-iasworld/tables/LEGDAT.sql, the columns I'm after are: parid,
 # taxyr, subdiv, subdnum, sublot, subblck, legal1, legal2, legal3, legdesc
+public_folder <- Sys.getenv("AWS_PUBLIC_FOLDER")
 
 noctua_options(unload = TRUE)
 AWS_ATHENA_CONN_NOCTUA <- dbConnect(noctua::athena(), rstudio_conn_tab = FALSE)
-public_folder <- Sys.getenv("AWS_PUBLIC_FOLDER")
 
 query <- "
 	SELECT leg.parid,
